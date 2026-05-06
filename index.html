@@ -1316,6 +1316,56 @@ function switchTab(tab, btn) {
 function loadSavedPoems() {
     const saved = JSON.parse(localStorage.getItem('rhymetime_poems') || '[]');
     const container = document.getElementById('saved-poems);
+
+                                              
+                                           function loadSavedPoems() {
+    const saved = JSON.parse(localStorage.getItem('rhymetime_poems') || '[]');
+    const container = document.getElementById('saved-poems-container');
+    if (saved.length === 0) {
+        container.innerHTML = `<p class="no-poems">${tr('noPoems')}</p>`;
+        return;
+    }
+    container.innerHTML = '<div class="saved-poems">' +
+        saved.map((poem, index) => ` <div class="poem-card"> <div class="poem-card-header"> <span class="poem-card-title">${poem.title}</span> <div class="poem-card-meta"> <span class="poem-card-lang">${poem.lang === 'en' ? '🇬🇧 EN' : '🇷🇴 RO'}</span> ${poem.ai ? '<span class="poem-card-ai">🤖 AI</span>' : ''} <span class="poem-card-date">📅 ${poem.date}</span> </div> </div> <div class="poem-card-lines"> ${poem.verses.map(v => `<div class="poem-card-line ${v.type === 'generated' ? 'gen' : 'usr'}">${v.text}</div>` ).join('')} </div> <div class="poem-card-actions"> <button class="btn btn-secondary" onclick="copyPoemByIndex(${index})">${tr('copyCardBtn')}</button> <button class="btn btn-danger" onclick="deletePoem(${index})">${tr('deleteCardBtn')}</button> </div> </div> `).join('') +
+    '</div>';
+}
+
+function copyPoemByIndex(index) {
+    const saved = JSON.parse(localStorage.getItem('rhymetime_poems') || '[]');
+    const poem = saved[index];
+    const text = `${poem.title}\n\n${poem.verses.map(v => v.text).join('\n')}`;
+    navigator.clipboard.writeText(text).then(() => showNotification(tr('notifCopied')));
+}
+
+function deletePoem(index) {
+    if (confirm(tr('confirmDelete'))) {
+        const saved = JSON.parse(localStorage.getItem('rhymetime_poems') || '[]');
+        saved.splice(index, 1);
+        localStorage.setItem('rhymetime_poems', JSON.stringify(saved));
+        loadSavedPoems();
+        showNotification(tr('notifDeleted'));
+    }
+}
+
+function showNotification(message) {
+    const notif = document.getElementById('notification');
+    notif.textContent = message;
+    notif.classList.add('show');
+    setTimeout(() => notif.classList.remove('show'), 3000);
+}
+
+document.getElementById('verse-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        submitVerse();
+    }
+});
+
+// ===== INIT =====
+if (apiKey) {
+    document.getElementById('api-key-input').value = apiKey;
+}
+loadSavedPoems();   
 </script>
 </body>
 </html>
