@@ -212,12 +212,15 @@ function renderMain() {
   const empty = document.getElementById("emptyState");
   const noResults = document.getElementById("noResults");
   const countEl = document.getElementById("resultCount");
+  const clearBtn = document.getElementById("clearFiltersBtn");
+  const hasFilters = Boolean(activeTag || searchTerm.trim());
   grid.innerHTML = "";
 
   if (recipes.length === 0) {
     empty.hidden = false;
     noResults.hidden = true;
     countEl.textContent = "";
+    clearBtn.hidden = true;
     return;
   }
   empty.hidden = true;
@@ -226,9 +229,11 @@ function renderMain() {
   if (filtered.length === 0) {
     noResults.hidden = false;
     countEl.textContent = "";
+    clearBtn.hidden = !hasFilters;
     return;
   }
   noResults.hidden = true;
+  clearBtn.hidden = !hasFilters;
 
   countEl.textContent = filtered.length === recipes.length
     ? `${recipes.length} recipe${recipes.length === 1 ? "" : "s"}`
@@ -274,6 +279,13 @@ function renderGroupedByTag(container, list) {
   });
 }
 
+function fallbackIconFor(id) {
+  const icons = ["i-whisk", "i-leaf", "i-pot"];
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  return icons[hash % icons.length];
+}
+
 function createCardEl(r) {
   const card = document.createElement("article");
   card.className = "recipe-card";
@@ -287,7 +299,7 @@ function createCardEl(r) {
     img.alt = "";
     avatar.appendChild(img);
   } else {
-    avatar.innerHTML = `<svg class="icon"><use href="#i-whisk"/></svg>`;
+    avatar.innerHTML = `<svg class="icon"><use href="#${fallbackIconFor(r.id)}"/></svg>`;
   }
   card.appendChild(avatar);
 
@@ -351,6 +363,7 @@ function openNewRecipeModal(prefill) {
   }
   recipeModal.showModal();
   document.getElementById("fTitle").focus();
+  updateTagSuggestions();
 }
 
 function openEditRecipeModal(recipe) {
@@ -359,13 +372,14 @@ function openEditRecipeModal(recipe) {
   document.getElementById("recipeModalTitle").textContent = "Edit recipe";
   document.getElementById("fId").value = recipe.id;
   document.getElementById("fTitle").value = recipe.title || "";
-  document.getElementById("fTags").value = (recipe.tags || []).join(", ");
+  document.getElementById("fTags").value = (recipe.tags || []).join(", ") + (recipe.tags && recipe.tags.length ? ", " : "");
   document.getElementById("fNotes").value = recipe.notes || "";
   document.getElementById("fLink").value = recipe.link || "";
   document.getElementById("fLinkText").value = recipe.linkText || "";
   currentImages = recipe.images ? [...recipe.images] : [];
   renderImagePreviews();
   renderTagsPreviewFromInput();
+  updateTagSuggestions();
   recipeModal.showModal();
 }
 
@@ -408,12 +422,12 @@ function updateTagSuggestions() {
   const matches = known
     .filter((t) => !alreadyChosen.has(t.toLowerCase()))
     .filter((t) => fragment === "" || t.toLowerCase().includes(fragment))
-    .slice(0, 8);
+    .slice(0, 40);
 
   if (matches.length === 0) { list.hidden = true; return; }
 
   list.innerHTML =
-    `<span class="tag-suggest-hint">${fragment ? "Matching tags" : "Tags you've used before"}</span>` +
+    `<span class="tag-suggest-hint">${fragment ? "Matching tags" : "Tags you've used before — tap to add"}</span>` +
     matches.map((t) => `<button type="button" data-tag="${escapeHTML(t)}">${escapeHTML(t)}</button>`).join("");
   list.hidden = false;
 
@@ -431,12 +445,6 @@ function updateTagSuggestions() {
     });
   });
 }
-
-document.addEventListener("click", (e) => {
-  const wrap = document.querySelector(".field-tags");
-  const list = document.getElementById("tagSuggestList");
-  if (wrap && list && !wrap.contains(e.target)) list.hidden = true;
-});
 
 function renderImagePreviews() {
   const list = document.getElementById("imagePreviewList");
@@ -709,6 +717,13 @@ function wireEvents() {
     renderMain();
   });
 
+  document.getElementById("clearFiltersBtn").addEventListener("click", () => {
+    activeTag = null;
+    searchTerm = "";
+    document.getElementById("searchInput").value = "";
+    renderMain();
+  });
+
   document.getElementById("viewGridBtn").addEventListener("click", () => setView("grid"));
   document.getElementById("viewTagBtn").addEventListener("click", () => setView("tag"));
 
@@ -739,6 +754,7 @@ function wireEvents() {
 
   // detail modal
   document.getElementById("closeDetailModal").addEventListener("click", () => detailModal.close());
+  document.getElementById("printRecipeBtn").addEventListener("click", () => window.print());
   document.getElementById("galleryPrev").addEventListener("click", () => scrollGallery(-1));
   document.getElementById("galleryNext").addEventListener("click", () => scrollGallery(1));
   document.getElementById("editRecipeBtn").addEventListener("click", () => {

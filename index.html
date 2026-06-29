@@ -6,6 +6,12 @@
 <title>Verdigris — your recipe pantry</title>
 <meta name="description" content="A cozy pantry for every recipe screenshot, link, and scribble worth keeping." />
 <meta name="theme-color" content="#2A3D31" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Verdigris" />
+<meta property="og:title" content="Verdigris" />
+<meta property="og:description" content="Where all the recipes you love end up." />
+<meta property="og:type" content="website" />
 <link rel="manifest" href="./manifest.json" />
 <link rel="icon" href="./icon-192.png" />
 <link rel="apple-touch-icon" href="./icon-192.png" />
@@ -35,6 +41,7 @@
   <symbol id="i-whisk" viewBox="0 0 24 24"><path d="M12 13v8"/><path d="M9 4c0 4 1 7 3 9 2-2 3-5 3-9"/><path d="M9 4c0 3 1.5 5 3 6M15 4c0 3-1.5 5-3 6M12 4v6"/></symbol>
   <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></symbol>
   <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.2" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-print" viewBox="0 0 24 24"><rect x="6" y="3.5" width="12" height="6" rx="1"/><rect x="4" y="9" width="16" height="8" rx="1.5"/><rect x="7" y="14" width="10" height="6.5" rx="1"/></symbol>
 </svg>
 
 <header class="app-header">
@@ -42,7 +49,7 @@
     <svg class="brand-pot" viewBox="0 0 24 24"><use href="#i-pot"/></svg>
     <div class="brand-text">
       <h1>Verdigris</h1>
-      <p class="tagline">saved forever — cooking it is still on you</p>
+      <p class="tagline">Where all the recipes you love end up.</p>
     </div>
   </div>
 
@@ -85,7 +92,10 @@
 </section>
 
 <main id="mainArea">
-  <p class="result-count" id="resultCount"></p>
+  <div class="result-bar">
+    <p class="result-count" id="resultCount"></p>
+    <button type="button" class="clear-filters-btn" id="clearFiltersBtn" hidden>Clear filters</button>
+  </div>
   <section id="recipeGrid" class="recipe-grid"></section>
 
   <div id="emptyState" class="empty-state" hidden>
@@ -141,8 +151,8 @@
       <label class="field field-tags">
         <span class="field-label"><svg class="icon icon-sm"><use href="#i-tag"/></svg> Tags</span>
         <input type="text" id="fTags" placeholder="dessert, quick, weekend" autocomplete="off" />
-        <div class="tag-suggest-list" id="tagSuggestList" hidden></div>
         <div class="tag-preview" id="fTagsPreview"></div>
+        <div class="tag-suggest-list" id="tagSuggestList" hidden></div>
       </label>
 
       <label class="field">
@@ -223,6 +233,10 @@
     <button type="button" class="btn btn-ghost btn-danger" id="deleteRecipeBtn">
       <svg class="icon"><use href="#i-trash"/></svg>
       Delete
+    </button>
+    <button type="button" class="btn btn-ghost" id="printRecipeBtn">
+      <svg class="icon"><use href="#i-print"/></svg>
+      Print
     </button>
     <button type="button" class="btn btn-copper" id="editRecipeBtn">
       <svg class="icon"><use href="#i-edit"/></svg>
