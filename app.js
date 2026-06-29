@@ -10,6 +10,7 @@ let recipes = [];
 let activeTag = null;     // lowercase tag string, or null for "All"
 let searchTerm = "";
 let viewMode = "grid";    // "grid" | "tag"
+let sortMode = "newest";  // "newest" | "oldest" | "az"
 
 let currentImages = [];        // data URLs attached in the open form
 let editingId = null;          // id of recipe being edited, or null for new
@@ -197,9 +198,10 @@ function matchesTag(r, tagKey) {
 
 function getFiltered() {
   const term = searchTerm.trim().toLowerCase();
-  return recipes
-    .filter((r) => matchesSearch(r, term) && matchesTag(r, activeTag))
-    .sort((a, b) => b.updatedAt - a.updatedAt);
+  const list = recipes.filter((r) => matchesSearch(r, term) && matchesTag(r, activeTag));
+  if (sortMode === "oldest") return list.sort((a, b) => a.createdAt - b.createdAt);
+  if (sortMode === "az") return list.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+  return list.sort((a, b) => b.updatedAt - a.updatedAt); // newest first (default)
 }
 
 /* ----------------------- Rendering: grid / groups ----------------------- */
@@ -209,11 +211,13 @@ function renderMain() {
   const grid = document.getElementById("recipeGrid");
   const empty = document.getElementById("emptyState");
   const noResults = document.getElementById("noResults");
+  const countEl = document.getElementById("resultCount");
   grid.innerHTML = "";
 
   if (recipes.length === 0) {
     empty.hidden = false;
     noResults.hidden = true;
+    countEl.textContent = "";
     return;
   }
   empty.hidden = true;
@@ -221,9 +225,14 @@ function renderMain() {
   const filtered = getFiltered();
   if (filtered.length === 0) {
     noResults.hidden = false;
+    countEl.textContent = "";
     return;
   }
   noResults.hidden = true;
+
+  countEl.textContent = filtered.length === recipes.length
+    ? `${recipes.length} recipe${recipes.length === 1 ? "" : "s"}`
+    : `${filtered.length} of ${recipes.length} recipes`;
 
   if (viewMode === "grid") {
     filtered.forEach((r) => grid.appendChild(createCardEl(r)));
@@ -270,62 +279,42 @@ function createCardEl(r) {
   card.className = "recipe-card";
   card.tabIndex = 0;
 
-  const pin = document.createElement("div");
-  pin.className = "pin";
-  card.appendChild(pin);
-
-  const thumbWrap = document.createElement("div");
-  thumbWrap.className = "card-thumb-wrap";
-  const thumb = document.createElement("div");
-  thumb.className = "card-thumb";
+  const avatar = document.createElement("div");
+  avatar.className = "card-avatar";
   if (r.images && r.images.length) {
     const img = document.createElement("img");
     img.src = r.images[0];
     img.alt = "";
-    thumb.appendChild(img);
-    if (r.images.length > 1) {
-      const badge = document.createElement("span");
-      badge.className = "card-thumb-badge";
-      badge.textContent = `+${r.images.length - 1}`;
-      thumbWrap.appendChild(badge);
-    }
+    avatar.appendChild(img);
   } else {
-    thumb.innerHTML = `<svg class="icon"><use href="#i-whisk"/></svg>`;
+    avatar.innerHTML = `<svg class="icon"><use href="#i-whisk"/></svg>`;
   }
-  thumbWrap.prepend(thumb);
-  card.appendChild(thumbWrap);
+  card.appendChild(avatar);
+
+  const body = document.createElement("div");
+  body.className = "card-body";
 
   const title = document.createElement("h3");
   title.className = "card-title";
   title.textContent = r.title || "Untitled recipe";
-  card.appendChild(title);
+  body.appendChild(title);
 
-  const snippetSource = r.notes || r.linkText || "";
-  if (snippetSource) {
-    const snippet = document.createElement("p");
-    snippet.className = "card-snippet";
-    snippet.textContent = snippetSource;
-    card.appendChild(snippet);
-  }
+  const metaParts = [];
+  if (r.tags && r.tags.length) metaParts.push(escapeHTML(r.tags[0]) + (r.tags.length > 1 ? ` +${r.tags.length - 1}` : ""));
+  metaParts.push(formatDate(r.updatedAt));
+  const meta = document.createElement("div");
+  meta.className = "card-meta";
+  meta.innerHTML =
+    (r.link ? `<span class="card-link-flag"><svg class="icon"><use href="#i-link"/></svg></span>` : "") +
+    metaParts.map((p, i) => (i === 0 ? p : `<span class="dot"></span>${p}`)).join("");
+  body.appendChild(meta);
 
-  if (r.tags && r.tags.length) {
-    const tagsEl = document.createElement("div");
-    tagsEl.className = "card-tags";
-    r.tags.slice(0, 4).forEach((t) => {
-      const chip = document.createElement("span");
-      chip.className = "mini-chip";
-      chip.textContent = t;
-      tagsEl.appendChild(chip);
-    });
-    card.appendChild(tagsEl);
-  }
+  card.appendChild(body);
 
-  const date = document.createElement("div");
-  date.className = "card-date";
-  date.innerHTML = r.link
-    ? `<span class="card-link-flag"><svg class="icon"><use href="#i-link"/></svg> ${formatDate(r.updatedAt)}</span>`
-    : formatDate(r.updatedAt);
-  card.appendChild(date);
+  const chevron = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  chevron.setAttribute("class", "card-chevron icon");
+  chevron.innerHTML = `<use href="#i-chevron-right"/>`;
+  card.appendChild(chevron);
 
   card.addEventListener("click", () => openDetailModal(r.id));
   card.addEventListener("keydown", (e) => {
@@ -344,6 +333,7 @@ function resetForm() {
   recipeForm.reset();
   document.getElementById("fId").value = "";
   document.getElementById("fTagsPreview").innerHTML = "";
+  document.getElementById("tagSuggestList").hidden = true;
   currentImages = [];
   renderImagePreviews();
   editingId = null;
@@ -388,6 +378,65 @@ function renderTagsPreviewFromInput() {
   const tags = parseTags(document.getElementById("fTags").value);
   preview.innerHTML = tags.map((t) => `<span class="mini-chip">${escapeHTML(t)}</span>`).join("");
 }
+
+/* ----------------------- Tag suggestions (reuse past tags) ----------------------- */
+
+function getAllKnownTagLabels() {
+  const counts = new Map(); // lowercase -> { label, count }
+  recipes.forEach((r) => {
+    (r.tags || []).forEach((t) => {
+      const key = t.toLowerCase();
+      if (!counts.has(key)) counts.set(key, { label: t, count: 0 });
+      counts.get(key).count++;
+    });
+  });
+  return [...counts.values()].sort((a, b) => b.count - a.count).map((v) => v.label);
+}
+
+function updateTagSuggestions() {
+  const input = document.getElementById("fTags");
+  const list = document.getElementById("tagSuggestList");
+  const known = getAllKnownTagLabels();
+
+  if (known.length === 0) { list.hidden = true; return; }
+
+  const raw = input.value;
+  const parts = raw.split(",");
+  const fragment = parts[parts.length - 1].trim().toLowerCase();
+  const alreadyChosen = new Set(parts.slice(0, -1).map((p) => p.trim().toLowerCase()));
+
+  const matches = known
+    .filter((t) => !alreadyChosen.has(t.toLowerCase()))
+    .filter((t) => fragment === "" || t.toLowerCase().includes(fragment))
+    .slice(0, 8);
+
+  if (matches.length === 0) { list.hidden = true; return; }
+
+  list.innerHTML =
+    `<span class="tag-suggest-hint">${fragment ? "Matching tags" : "Tags you've used before"}</span>` +
+    matches.map((t) => `<button type="button" data-tag="${escapeHTML(t)}">${escapeHTML(t)}</button>`).join("");
+  list.hidden = false;
+
+  list.querySelectorAll("button").forEach((btn) => {
+    // mousedown (not click) so this fires before the input's blur removes the list
+    btn.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      const chosen = btn.dataset.tag;
+      const parts2 = input.value.split(",").map((p) => p.trim());
+      parts2[parts2.length - 1] = chosen;
+      input.value = parts2.filter(Boolean).join(", ") + ", ";
+      renderTagsPreviewFromInput();
+      input.focus();
+      updateTagSuggestions();
+    });
+  });
+}
+
+document.addEventListener("click", (e) => {
+  const wrap = document.querySelector(".field-tags");
+  const list = document.getElementById("tagSuggestList");
+  if (wrap && list && !wrap.contains(e.target)) list.hidden = true;
+});
 
 function renderImagePreviews() {
   const list = document.getElementById("imagePreviewList");
@@ -644,10 +693,19 @@ function wireEvents() {
   document.getElementById("closeRecipeModal").addEventListener("click", closeRecipeModal);
   document.getElementById("cancelRecipeBtn").addEventListener("click", closeRecipeModal);
   recipeForm.addEventListener("submit", saveRecipeFromForm);
-  document.getElementById("fTags").addEventListener("input", renderTagsPreviewFromInput);
+  document.getElementById("fTags").addEventListener("input", () => {
+    renderTagsPreviewFromInput();
+    updateTagSuggestions();
+  });
+  document.getElementById("fTags").addEventListener("focus", updateTagSuggestions);
 
   document.getElementById("searchInput").addEventListener("input", (e) => {
     searchTerm = e.target.value;
+    renderMain();
+  });
+
+  document.getElementById("sortSelect").addEventListener("change", (e) => {
+    sortMode = e.target.value;
     renderMain();
   });
 

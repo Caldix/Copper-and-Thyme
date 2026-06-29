@@ -37,14 +37,12 @@
   <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.2" fill="currentColor" stroke="none"/></symbol>
 </svg>
 
-<div class="texture-overlay" aria-hidden="true"></div>
-
 <header class="app-header">
   <div class="brand">
     <svg class="brand-pot" viewBox="0 0 24 24"><use href="#i-pot"/></svg>
     <div class="brand-text">
       <h1>Verdigris</h1>
-      <p class="tagline">the patina of a kitchen well-loved</p>
+      <p class="tagline">saved forever — cooking it is still on you</p>
     </div>
   </div>
 
@@ -53,6 +51,12 @@
       <svg class="icon"><use href="#i-search"/></svg>
       <input type="search" id="searchInput" placeholder="Search titles, tags, ingredients…" autocomplete="off" />
     </label>
+
+    <select id="sortSelect" class="sort-select" aria-label="Sort recipes">
+      <option value="newest">Newest first</option>
+      <option value="oldest">Oldest first</option>
+      <option value="az">Title A–Z</option>
+    </select>
 
     <div class="view-toggle" role="group" aria-label="View mode">
       <button type="button" id="viewGridBtn" class="view-btn is-active" aria-pressed="true" title="Grid view">
@@ -81,6 +85,7 @@
 </section>
 
 <main id="mainArea">
+  <p class="result-count" id="resultCount"></p>
   <section id="recipeGrid" class="recipe-grid"></section>
 
   <div id="emptyState" class="empty-state" hidden>
@@ -133,9 +138,10 @@
         <input type="text" id="fTitle" placeholder="Bunica's sour cherry cake" required />
       </label>
 
-      <label class="field">
+      <label class="field field-tags">
         <span class="field-label"><svg class="icon icon-sm"><use href="#i-tag"/></svg> Tags</span>
         <input type="text" id="fTags" placeholder="dessert, quick, weekend" autocomplete="off" />
+        <div class="tag-suggest-list" id="tagSuggestList" hidden></div>
         <div class="tag-preview" id="fTagsPreview"></div>
       </label>
 
